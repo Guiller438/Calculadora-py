@@ -46,5 +46,5 @@ workflows:
                 event: fail
                 custom: |
                   {
-                    "text": ":x: ¡Pipeline *FALLÓ*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :bangbang:"
+                    "text": ":x: ¡Este Pipeline ha *FALLADO*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :bangbang:"
                   }
