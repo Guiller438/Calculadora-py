@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  slack: circleci/slack@4.12.5
+
 jobs:
   test:
     docker:
@@ -14,7 +17,7 @@ jobs:
             . venv/bin/activate
             pip install -r requirements.txt
       - run:
-          name: Ejecutar pruebas con cobertura
+          name: Ejecutar pruebas con coverage
           command: |
             . venv/bin/activate
             coverage run -m pytest
@@ -31,4 +34,17 @@ workflows:
   version: 2
   test-workflow:
     jobs:
-      - test
+      - test:
+          post-steps:
+            - slack/notify:
+                event: pass
+                custom: |
+                  {
+                    "text": ":white_check_mark: ¡Pipeline *PASÓ*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :rocket:"
+                  }
+            - slack/notify:
+                event: fail
+                custom: |
+                  {
+                    "text": ":x: ¡Pipeline *FALLÓ*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :bangbang:"
+                  }
