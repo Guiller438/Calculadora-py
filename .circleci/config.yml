@@ -37,6 +37,9 @@ jobs:
           root: .
           paths:
             - .coverage
+      - store_artifacts:
+          path: .coverage
+          destination: coverage-data
       - slack/notify:
           event: fail
           channel: "#estudiante"
@@ -50,28 +53,6 @@ jobs:
           custom: |
             {
               "text": ":white_check_mark: *Pruebas exitosas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
-            }
-
-  cobertura-html:
-    docker:
-      - image: cimg/python:3.12
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: Generar reporte HTML de cobertura
-          command: |
-            . venv/bin/activate
-            coverage html --ignore-errors
-      - store_artifacts:
-          path: htmlcov
-          destination: coverage-report
-      - slack/notify:
-          event: always
-          channel: "#general-procesosdesoftware"
-          custom: |
-            {
-              "text": ":bar_chart: Se ha generado el *reporte de cobertura* del proyecto `calculadora-proyecto`."
             }
 
   analisis-flake8:
@@ -100,9 +81,6 @@ workflows:
     jobs:
       - crear-entorno
       - pruebas:
-          requires:
-            - crear-entorno
-      - cobertura-html:
           requires:
             - crear-entorno
       - analisis-flake8:
