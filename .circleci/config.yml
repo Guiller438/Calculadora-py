@@ -4,10 +4,9 @@ orbs:
   slack: circleci/slack@4.12.5
 
 jobs:
-  test:
+  crear-entorno:
     docker:
       - image: cimg/python:3.12
-    parallelism: 2
     steps:
       - checkout
       - run:
@@ -16,75 +15,92 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt
+      - persist_to_workspace:
+          root: .
+          paths:
+            - venv
+            - .
+
+  pruebas:
+    docker:
+      - image: cimg/python:3.12
+    parallelism: 2
+    steps:
+      - attach_workspace:
+          at: .
       - run:
           name: Ejecutar pruebas con coverage
           command: |
             . venv/bin/activate
             coverage run -m pytest
+      - slack/notify:
+          event: fail
+          channel: "#estudiante"
+          custom: |
+            {
+              "text": ":x: *Pruebas Fallidas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
+            }
+      - slack/notify:
+          event: pass
+          channel: "#estudiante"
+          custom: |
+            {
+              "text": ":white_check_mark: *Pruebas exitosas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
+            }
+
+  cobertura-html:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
       - run:
-          name: Generar reporte HTML
+          name: Generar reporte HTML de cobertura
           command: |
             . venv/bin/activate
             coverage html
       - store_artifacts:
           path: htmlcov
           destination: coverage-report
+      - slack/notify:
+          event: always
+          channel: "#general-procesosdesoftware"
+          custom: |
+            {
+              "text": ":bar_chart: Se ha generado el *reporte de cobertura* del proyecto `calculadora-proyecto`."
+            }
 
-  flake8-check:
+  analisis-flake8:
     docker:
       - image: cimg/python:3.12
     steps:
-      - checkout
+      - attach_workspace:
+          at: .
       - run:
-          name: Ejecutar flake8
+          name: Ejecutar análisis de código con flake8
           command: |
-            python -m venv venv
             . venv/bin/activate
             pip install flake8
             flake8 . --exit-zero
       - slack/notify:
           event: always
-          channel: general-procesosdesoftware
+          channel: "#general-procesosdesoftware"
           custom: |
             {
-              "text": ":mag: *flake8 ejecutado* para `calculadora-proyecto`. Revisa advertencias si las hay."
-            }
-
-  requirements-review:
-    docker:
-      - image: cimg/python:3.12
-    steps:
-      - checkout
-      - run:
-          name: Verificar si los paquetes están desactualizados
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            pip install -r requirements.txt
-            pip list --outdated > outdated.txt
-            cat outdated.txt
-      - store_artifacts:
-          path: outdated.txt
-          destination: dependencias-obsoletas
-      - slack/notify:
-          event: always
-          channel: general-procesosdesoftware
-          custom: |
-            {
-              "text": ":warning: Se verificaron paquetes desactualizados en `calculadora-proyecto`. Verifica el archivo `outdated.txt`."
+              "text": ":mag: *flake8 ejecutado* en `calculadora-proyecto`. Revisa posibles advertencias o errores de formato."
             }
 
 workflows:
   version: 2
-  test-workflow:
+  workflow-paralelo:
     jobs:
-      - test:
-          post-steps:
-            - slack/notify:
-                event: pass
-                channel: general-procesosdesoftware
-                custom: |
-                  {
-                    "text": ":white_check_mark: ¡Pipeline *PASÓ*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :rocket:"
-                  }
-            - slack/no
+      - crear-entorno
+      - pruebas:
+          requires:
+            - crear-entorno
+      - cobertura-html:
+          requires:
+            - crear-entorno
+      - analisis-flake8:
+          requires:
+            - crear-entorno
