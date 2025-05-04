@@ -58,7 +58,8 @@ jobs:
           name: Generar reporte HTML de cobertura
           command: |
             . venv/bin/activate
-            coverage html
+            coverage combine
+            coverage html --ignore-errors
       - store_artifacts:
           path: htmlcov
           destination: coverage-report
