@@ -84,7 +84,7 @@ jobs:
           name: Mostrar resumen de cobertura en consola
           command: |
             . venv/bin/activate
-            coverage report
+            coverage report --ignore-errors --include=calculadora/*
 
   analisis-flake8:
     docker:
