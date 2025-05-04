@@ -32,7 +32,7 @@ jobs:
           name: Ejecutar pruebas con coverage
           command: |
             . venv/bin/activate
-            coverage run -m pytest
+            coverage run --source=. -m pytest
       - persist_to_workspace:
           root: .
           paths:
@@ -55,6 +55,28 @@ jobs:
               "text": ":white_check_mark: *Pruebas exitosas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
             }
 
+  cobertura-html:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Generar reporte HTML de cobertura
+          command: |
+            . venv/bin/activate
+            coverage html --ignore-errors
+      - store_artifacts:
+          path: htmlcov
+          destination: coverage-report
+      - slack/notify:
+          event: always
+          channel: "#general-procesosdesoftware"
+          custom: |
+            {
+              "text": ":bar_chart: Se ha generado el *reporte HTML de cobertura* en `calculadora-proyecto`."
+            }
+
   analisis-flake8:
     docker:
       - image: cimg/python:3.12
@@ -75,6 +97,84 @@ jobs:
               "text": ":mag: *flake8 ejecutado* en `calculadora-proyecto`. Revisa posibles advertencias o errores de formato."
             }
 
+  reporte-cobertura-terminal:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Mostrar resumen de cobertura en consola
+          command: |
+            . venv/bin/activate
+            coverage report
+      - slack/notify:
+          event: always
+          channel: "#general-procesosdesoftware"
+          custom: |
+            {
+              "text": ":scroll: *Resumen de cobertura impreso en terminal* para `calculadora-proyecto`."
+            }
+
+  exportar-coverage-raw:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
+      - store_artifacts:
+          path: .coverage
+          destination: raw-coverage
+      - slack/notify:
+          event: always
+          channel: "#general-procesosdesoftware"
+          custom: |
+            {
+              "text": ":inbox_tray: *Archivo `.coverage` exportado como artifact* desde `calculadora-proyecto`."
+            }
+
+  verificar-funciones-principales:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Buscar funciones __main__
+          command: |
+            grep -r "__main__" calculadora || echo "No se encontró ninguna entrada con if __name__ == '__main__'"
+      - slack/notify:
+          event: always
+          channel: "#estudiante"
+          custom: |
+            {
+              "text": ":bookmark_tabs: Se verificaron entradas `__main__` en los scripts de `calculadora-proyecto`."
+            }
+
+  verificar-archivos-test:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Validar existencia de archivos test
+          command: |
+            find calculadora -name '*.py' | while read file; do
+              base=$(basename "$file" .py)
+              test_file="tests/test_${base}.py"
+              if [ ! -f "$test_file" ]; then
+                echo "⚠️ Falta test para $file"
+              fi
+            done
+      - slack/notify:
+          event: always
+          channel: "#estudiante"
+          custom: |
+            {
+              "text": ":microscope: Se revisó correspondencia entre módulos y archivos de test en `calculadora-proyecto`."
+            }
+
 workflows:
   version: 2
   workflow-paralelo:
@@ -83,6 +183,21 @@ workflows:
       - pruebas:
           requires:
             - crear-entorno
+      - cobertura-html:
+          requires:
+            - crear-entorno
       - analisis-flake8:
+          requires:
+            - crear-entorno
+      - reporte-cobertura-terminal:
+          requires:
+            - crear-entorno
+      - exportar-coverage-raw:
+          requires:
+            - crear-entorno
+      - verificar-funciones-principales:
+          requires:
+            - crear-entorno
+      - verificar-archivos-test:
           requires:
             - crear-entorno
