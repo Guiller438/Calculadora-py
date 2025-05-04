@@ -4,6 +4,7 @@ jobs:
   test:
     docker:
       - image: cimg/python:3.12
+    parallelism: 2  # Se ejecutará en 2 contenedores paralelos
     steps:
       - checkout
       - run:
@@ -13,10 +14,10 @@ jobs:
             . venv/bin/activate
             pip install -r requirements.txt
       - run:
-          name: Ejecutar pruebas
+          name: Ejecutar pruebas en paralelo
           command: |
             . venv/bin/activate
-            pytest
+            circleci tests glob "tests/test_*.py" | circleci tests split | xargs -n 1 pytest
 
 workflows:
   version: 2
