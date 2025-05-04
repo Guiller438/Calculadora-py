@@ -15,11 +15,12 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt
+            pip install flake8 coverage
       - persist_to_workspace:
           root: .
           paths:
             - venv
-            - "."
+            - .
 
   pruebas:
     docker:
@@ -32,6 +33,10 @@ jobs:
           command: |
             . venv/bin/activate
             coverage run -m pytest
+      - persist_to_workspace:  # 🔁 Persistir archivo .coverage
+          root: .
+          paths:
+            - .coverage
       - slack/notify:
           event: fail
           custom: |
@@ -66,7 +71,7 @@ jobs:
           custom: |
             {
               "channel": "#general-procesosdesoftware",
-              "text": ":bar_chart: Se ha generado el *reporte de cobertura* del proyecto."
+              "text": ":bar_chart: *Reporte de cobertura generado* para `calculadora-proyecto`."
             }
 
   analisis-flake8:
@@ -77,29 +82,4 @@ jobs:
           at: .
       - run:
           name: Ejecutar análisis de código con flake8
-          command: |
-            . venv/bin/activate
-            pip install flake8
-            flake8 . --exit-zero
-      - slack/notify:
-          event: always
-          custom: |
-            {
-              "channel": "#general-procesosdesoftware",
-              "text": ":mag: *flake8 ejecutado* para análisis estático del código. Revisa si hay advertencias o errores de formato."
-            }
-
-workflows:
-  version: 2
-  workflow-paralelo:
-    jobs:
-      - crear-entorno
-      - pruebas:
-          requires:
-            - crear-entorno
-      - cobertura-html:
-          requires:
-            - crear-entorno
-      - analisis-flake8:
-          requires:
-            - crear-entorno
+          command:
