@@ -1,0 +1,25 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Crear entorno virtual e instalar dependencias
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install -r requirements.txt
+      - run:
+          name: Ejecutar pruebas
+          command: |
+            . venv/bin/activate
+            pytest
+
+workflows:
+  version: 2
+  test-workflow:
+    jobs:
+      - test
