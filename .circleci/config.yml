@@ -33,6 +33,10 @@ jobs:
           command: |
             . venv/bin/activate
             coverage run -m pytest
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .coverage
       - slack/notify:
           event: fail
           channel: "#estudiante"
@@ -58,7 +62,6 @@ jobs:
           name: Generar reporte HTML de cobertura
           command: |
             . venv/bin/activate
-            coverage combine
             coverage html --ignore-errors
       - store_artifacts:
           path: htmlcov
