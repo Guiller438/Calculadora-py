@@ -4,9 +4,10 @@ orbs:
   slack: circleci/slack@4.12.5
 
 jobs:
-  crear-entorno:
+  test:
     docker:
       - image: cimg/python:3.12
+    parallelism: 2
     steps:
       - checkout
       - run:
@@ -15,71 +16,75 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt
-            pip install flake8 coverage
-      - persist_to_workspace:
-          root: .
-          paths:
-            - venv
-            - .
-
-  pruebas:
-    docker:
-      - image: cimg/python:3.12
-    steps:
-      - attach_workspace:
-          at: .
       - run:
           name: Ejecutar pruebas con coverage
           command: |
             . venv/bin/activate
             coverage run -m pytest
-      - persist_to_workspace:  # 🔁 Persistir archivo .coverage
-          root: .
-          paths:
-            - .coverage
-      - slack/notify:
-          event: fail
-          custom: |
-            {
-              "channel": "#estudiante",
-              "text": ":x: *Pruebas Fallidas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
-            }
-      - slack/notify:
-          event: pass
-          custom: |
-            {
-              "channel": "#estudiante",
-              "text": ":white_check_mark: *Pruebas exitosas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
-            }
-
-  cobertura-html:
-    docker:
-      - image: cimg/python:3.12
-    steps:
-      - attach_workspace:
-          at: .
       - run:
-          name: Generar reporte HTML de cobertura
+          name: Generar reporte HTML
           command: |
             . venv/bin/activate
             coverage html
       - store_artifacts:
           path: htmlcov
           destination: coverage-report
-      - slack/notify:
-          event: always
-          custom: |
-            {
-              "channel": "#general-procesosdesoftware",
-              "text": ":bar_chart: *Reporte de cobertura generado* para `calculadora-proyecto`."
-            }
 
-  analisis-flake8:
+  flake8-check:
     docker:
       - image: cimg/python:3.12
     steps:
-      - attach_workspace:
-          at: .
+      - checkout
       - run:
-          name: Ejecutar análisis de código con flake8
-          command:
+          name: Ejecutar flake8
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install flake8
+            flake8 . --exit-zero
+      - slack/notify:
+          event: always
+          channel: general-procesosdesoftware
+          custom: |
+            {
+              "text": ":mag: *flake8 ejecutado* para `calculadora-proyecto`. Revisa advertencias si las hay."
+            }
+
+  requirements-review:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Verificar si los paquetes están desactualizados
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install -r requirements.txt
+            pip list --outdated > outdated.txt
+            cat outdated.txt
+      - store_artifacts:
+          path: outdated.txt
+          destination: dependencias-obsoletas
+      - slack/notify:
+          event: always
+          channel: general-procesosdesoftware
+          custom: |
+            {
+              "text": ":warning: Se verificaron paquetes desactualizados en `calculadora-proyecto`. Verifica el archivo `outdated.txt`."
+            }
+
+workflows:
+  version: 2
+  test-workflow:
+    jobs:
+      - test:
+          post-steps:
+            - slack/notify:
+                event: pass
+                channel: general-procesosdesoftware
+                custom: |
+                  {
+                    "text": ":white_check_mark: ¡Pipeline *PASÓ*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :rocket:"
+                  }
+            - slack/no
