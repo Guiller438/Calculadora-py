@@ -19,7 +19,7 @@ jobs:
           root: .
           paths:
             - venv
-            - *
+            - "."
 
   pruebas:
     docker:
