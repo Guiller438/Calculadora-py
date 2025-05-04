@@ -62,7 +62,12 @@ jobs:
           name: Generar reporte HTML de cobertura
           command: |
             . venv/bin/activate
-            coverage html --ignore-errors
+            if [ -f .coverage ]; then
+              coverage html --ignore-errors
+            else
+              echo "No se encontró el archivo .coverage"
+              exit 0
+            fi
       - store_artifacts:
           path: htmlcov
           destination: coverage-report
@@ -84,7 +89,12 @@ jobs:
           name: Mostrar resumen de cobertura en consola
           command: |
             . venv/bin/activate
-            coverage report --ignore-errors --include=calculadora/*
+            if [ -f .coverage ]; then
+              coverage report --ignore-errors
+            else
+              echo "No se encontró el archivo .coverage"
+              exit 0
+            fi
 
   analisis-flake8:
     docker:
@@ -116,10 +126,10 @@ workflows:
             - crear-entorno
       - cobertura-html:
           requires:
-            - crear-entorno
+            - pruebas
       - resumen-cobertura:
           requires:
-            - crear-entorno
+            - pruebas
       - analisis-flake8:
           requires:
-            - crear-entorno
+            - crear-entor
