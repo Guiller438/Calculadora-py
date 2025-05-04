@@ -10,22 +10,36 @@ jobs:
     parallelism: 2
     steps:
       - checkout
+
+      - run:
+          name: Verificar existencia del token SLACK_ACCESS_TOKEN
+          command: |
+            if [ -z "$SLACK_ACCESS_TOKEN" ]; then
+              echo "❌ SLACK_ACCESS_TOKEN NO está configurado correctamente."
+              exit 1
+            else
+              echo "✅ SLACK_ACCESS_TOKEN está configurado y presente (valor oculto por seguridad)."
+            fi
+
       - run:
           name: Crear entorno virtual e instalar dependencias
           command: |
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt
+
       - run:
           name: Ejecutar pruebas con coverage
           command: |
             . venv/bin/activate
             coverage run -m pytest
+
       - run:
           name: Generar reporte HTML
           command: |
             . venv/bin/activate
             coverage html
+
       - store_artifacts:
           path: htmlcov
           destination: coverage-report
