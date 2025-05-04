@@ -4,10 +4,9 @@ orbs:
   slack: circleci/slack@4.12.5
 
 jobs:
-  test:
+  crear-entorno:
     docker:
       - image: cimg/python:3.12
-    parallelism: 2
     steps:
       - checkout
       - run:
@@ -16,37 +15,92 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt
+      - persist_to_workspace:
+          root: .
+          paths:
+            - venv
+            - *
+
+  pruebas:
+    docker:
+      - image: cimg/python:3.12
+    parallelism: 1
+    steps:
+      - attach_workspace:
+          at: .
       - run:
           name: Ejecutar pruebas con coverage
           command: |
             . venv/bin/activate
             coverage run -m pytest
+      - slack/notify:
+          event: fail
+          custom: |
+            {
+              "channel": "#estudiante",
+              "text": ":x: *Pruebas Fallidas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
+            }
+      - slack/notify:
+          event: pass
+          custom: |
+            {
+              "channel": "#estudiante",
+              "text": ":white_check_mark: *Pruebas exitosas* en `calculadora-proyecto` (rama: `<< pipeline.git.branch >>`)"
+            }
+
+  cobertura-html:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
       - run:
-          name: Generar reporte HTML
+          name: Generar reporte HTML de cobertura
           command: |
             . venv/bin/activate
             coverage html
       - store_artifacts:
           path: htmlcov
           destination: coverage-report
+      - slack/notify:
+          event: always
+          custom: |
+            {
+              "channel": "#general-procesosdesoftware",
+              "text": ":bar_chart: Se ha generado el *reporte de cobertura* del proyecto."
+            }
+
+  analisis-flake8:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Ejecutar análisis de código con flake8
+          command: |
+            . venv/bin/activate
+            pip install flake8
+            flake8 . --exit-zero
+      - slack/notify:
+          event: always
+          custom: |
+            {
+              "channel": "#general-procesosdesoftware",
+              "text": ":mag: *flake8 ejecutado* para análisis estático del código. Revisa si hay advertencias o errores de formato."
+            }
 
 workflows:
   version: 2
-  test-workflow:
+  workflow-paralelo:
     jobs:
-      - test:
-          post-steps:
-            - slack/notify:
-                event: pass
-                channel: general-procesosdesoftware  
-                custom: |
-                  {
-                    "text": ":white_check_mark: ¡Pipeline *PASÓ*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :rocket:"
-                  }
-            - slack/notify:
-                event: fail
-                channel: general-procesosdesoftware  
-                custom: |
-                  {
-                    "text": ":x: ¡Este Pipeline ha *FALLADO*! Proyecto `calculadora-proyecto` en rama `<< pipeline.git.branch >>` :bangbang:"
-                  }
+      - crear-entorno
+      - pruebas:
+          requires:
+            - crear-entorno
+      - cobertura-html:
+          requires:
+            - crear-entorno
+      - analisis-flake8:
+          requires:
+            - crear-entorno
