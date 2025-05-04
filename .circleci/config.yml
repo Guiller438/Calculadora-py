@@ -132,4 +132,4 @@ workflows:
             - pruebas
       - analisis-flake8:
           requires:
-            - crear-entor
+            - crear-entorno
